@@ -1,0 +1,9 @@
+[project]
+name = "fleetline"
+version = "1.0.0"
+description = "Conversational analytics over a synthetic fleet-card portfolio"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

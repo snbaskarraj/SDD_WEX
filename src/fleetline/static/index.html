@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fleetline — conversational fleet analytics</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="rail">
+      <div class="brand">
+        <span class="mark" aria-hidden="true">Fl</span>
+        <div>
+          <strong>Fleetline</strong>
+          <em>Synthetic fleet cards</em>
+        </div>
+      </div>
+      <p class="rail-note">One definition for every number. The interpreter picks a metric. The compiler writes the SQL.</p>
+      <p class="health" id="health">Loading portfolio…</p>
+      <h2>Try asking</h2>
+      <div id="examples" class="examples"></div>
+      <button type="button" class="ghost" id="new-chat">New conversation</button>
+    </aside>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">Conversational analytics</p>
+          <h1>Ask the fleet portfolio</h1>
+        </div>
+        <nav>
+          <button type="button" class="tab active" data-view="ask">Ask</button>
+          <button type="button" class="tab" data-view="catalog">Definitions</button>
+        </nav>
+      </header>
+      <section id="ask-view" class="view">
+        <div id="thread" class="thread" aria-live="polite"></div>
+        <form id="composer" class="composer">
+          <label class="sr" for="question">Ask a question</label>
+          <input id="question" name="question" maxlength="500" autocomplete="off" placeholder="Ask about spend, fraud, price, or delinquency" />
+          <button type="submit" id="send">Ask</button>
+        </form>
+        <p class="hint">Follow-ups edit the last answer. Try “and for Texas” or “break that down by product”.</p>
+      </section>
+      <section id="catalog-view" class="view catalog" hidden></section>
+    </main>
+  </div>
+  <script src="/static/app.js?v=2"></script>
+</body>
+</html>

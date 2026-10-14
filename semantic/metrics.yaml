@@ -1,0 +1,353 @@
+version: "1"
+
+examples:
+  - area: Spend
+    question: "Top 5 customers by spend this year"
+  - area: Fraud
+    question: "Monthly fraud losses in the Southwest"
+  - area: Fraud
+    question: "Fraud losses by merchant state in July 2026"
+  - area: Fraud
+    question: "How much did we lose to skimming in Texas in July 2026?"
+  - area: Fraud
+    question: "Fraud rate by SecureFuel status"
+  - area: Price
+    question: "Diesel vs unleaded price per gallon in the West"
+  - area: "Fleet mix"
+    question: "Which industry has the highest EV share?"
+  - area: Credit
+    question: "Delinquency rate by segment"
+  - area: Credit
+    question: "Which segment is most delinquent?"
+  - area: Network
+    question: "Out-of-network spend by region"
+  - area: Risk
+    question: "Decline rate by month this year"
+  - area: Spend
+    question: "Gallons by product last quarter"
+
+metrics:
+  fuel_spend:
+    label: Fuel spend
+    description: Approved purchase amount on fleet cards, including electricity.
+    fact: transactions
+    format: currency
+    expression: "SUM(CASE WHEN t.auth_status = 'Approved' THEN t.amount ELSE 0 END)"
+    synonyms: [fuel spend, spend, spent, spending, purchase amount, purchases, fuel purchases, sales]
+
+  gallons:
+    label: Gallons
+    description: Gallons on approved fuel sales. Electricity is excluded because gallons are zero.
+    fact: transactions
+    format: gallons
+    expression: "SUM(CASE WHEN t.auth_status = 'Approved' AND t.gallons > 0 THEN t.gallons ELSE 0 END)"
+    synonyms: [gallons, fuel volume]
+
+  transaction_count:
+    label: Transactions
+    description: Authorization count, approved and declined.
+    fact: transactions
+    format: count
+    expression: "COUNT(*)"
+    synonyms: [transaction count, number of transactions, how many transactions]
+
+  avg_ticket:
+    label: Average ticket
+    description: Average approved purchase amount.
+    fact: transactions
+    format: currency
+    expression: "AVG(CASE WHEN t.auth_status = 'Approved' THEN t.amount END)"
+    synonyms: [average ticket, avg ticket, average transaction size, average purchase]
+
+  price_per_gallon:
+    label: Price per gallon
+    description: Approved fuel dollars divided by gallons. Electricity is excluded.
+    fact: transactions
+    format: unit_price
+    expression: "SUM(CASE WHEN t.auth_status = 'Approved' AND t.gallons > 0 THEN t.amount ELSE 0 END) / NULLIF(SUM(CASE WHEN t.auth_status = 'Approved' AND t.gallons > 0 THEN t.gallons ELSE 0 END), 0)"
+    synonyms: [price per gallon, fuel price, cost per gallon, price/gallon, ppg]
+
+  fraud_losses:
+    label: Fraud losses
+    description: Dollars on transactions flagged as fraud.
+    fact: transactions
+    format: currency
+    expression: "SUM(CASE WHEN t.fraud_flag THEN t.amount ELSE 0 END)"
+    synonyms: [fraud losses, fraud loss, lost to fraud, lose to fraud]
+
+  fraud_rate:
+    label: Fraud rate
+    description: Fraud dollars divided by approved purchase dollars.
+    fact: transactions
+    format: percent
+    expression: "SUM(CASE WHEN t.fraud_flag THEN t.amount ELSE 0 END) / NULLIF(SUM(CASE WHEN t.auth_status = 'Approved' THEN t.amount ELSE 0 END), 0)"
+    synonyms: [fraud rate, rate of fraud]
+
+  decline_rate:
+    label: Decline rate
+    description: Share of authorizations that were declined.
+    fact: transactions
+    format: percent
+    expression: "AVG(CASE WHEN t.auth_status = 'Declined' THEN 1.0 ELSE 0.0 END)"
+    synonyms: [decline rate, declined rate]
+
+  out_of_network_spend:
+    label: Out-of-network spend
+    description: Approved dollars at out-of-network merchants.
+    fact: transactions
+    format: currency
+    expression: "SUM(CASE WHEN t.auth_status = 'Approved' AND NOT m.in_network THEN t.amount ELSE 0 END)"
+    synonyms: [out-of-network spend, out of network spend, off-network spend, off network spend]
+
+  out_of_network_share:
+    label: Out-of-network share
+    description: Out-of-network dollars divided by approved dollars.
+    fact: transactions
+    format: percent
+    expression: "SUM(CASE WHEN t.auth_status = 'Approved' AND NOT m.in_network THEN t.amount ELSE 0 END) / NULLIF(SUM(CASE WHEN t.auth_status = 'Approved' THEN t.amount ELSE 0 END), 0)"
+    synonyms: [out-of-network share, out of network share, network leakage]
+
+  ev_share:
+    label: EV share
+    description: Approved dollars on EV cards divided by approved dollars.
+    fact: transactions
+    format: percent
+    expression: "SUM(CASE WHEN t.auth_status = 'Approved' AND cd.fuel_type = 'EV' THEN t.amount ELSE 0 END) / NULLIF(SUM(CASE WHEN t.auth_status = 'Approved' THEN t.amount ELSE 0 END), 0)"
+    synonyms: [ev share, ev adoption, electric vehicle share, electric-vehicle share]
+
+  delinquency_rate:
+    label: Delinquency rate
+    description: Invoice dollars more than 30 days past due, divided by billed dollars.
+    fact: invoices
+    format: percent
+    expression: "SUM(CASE WHEN i.days_past_due > 30 THEN i.billed_amount ELSE 0 END) / NULLIF(SUM(i.billed_amount), 0)"
+    synonyms: [delinquency rate, delinquency, delinquent, delinquent balance]
+
+  write_off:
+    label: Write-off
+    description: Dollars written off.
+    fact: invoices
+    format: currency
+    expression: "SUM(i.writeoff_amount)"
+    synonyms: [write-off, write off, writeoffs, write-offs, write offs, charge-offs, charge offs]
+
+  days_past_due:
+    label: Days past due
+    description: Average days past due on invoices.
+    fact: invoices
+    format: days
+    expression: "AVG(i.days_past_due)"
+    synonyms: [days past due, average days past due, dpd]
+
+dimensions:
+  region:
+    label: Region
+    description: Merchant region for card questions (where the fuel was bought). Customer region for invoices.
+    facts: [transactions, invoices]
+    expression:
+      transactions: m.region
+      invoices: c.region
+    synonyms: [region, regions]
+    value_synonyms:
+      southwest: Southwest
+      south west: Southwest
+      the southwest: Southwest
+      southeast: Southeast
+      south east: Southeast
+      the southeast: Southeast
+      northeast: Northeast
+      north east: Northeast
+      the northeast: Northeast
+      midwest: Midwest
+      mid west: Midwest
+      the midwest: Midwest
+      the west: West
+      west: West
+
+  state:
+    label: Customer state
+    description: The fleet's home state. A bare state name on a card question filters merchant state instead.
+    facts: [transactions, invoices]
+    expression: c.state
+    synonyms: [customer state, fleet state, home state, state]
+
+  merchant_state:
+    label: Merchant state
+    description: State of the site where the card was used.
+    facts: [transactions]
+    expression: m.state
+    synonyms: [merchant state]
+
+  segment:
+    label: Segment
+    description: Small, Mid-market, or Enterprise.
+    facts: [transactions, invoices]
+    expression: c.segment
+    synonyms: [segment, segments]
+    value_synonyms:
+      mid-market: Mid-market
+      mid market: Mid-market
+      midmarket: Mid-market
+      enterprise: Enterprise
+      small business: Small
+      small: Small
+
+  industry:
+    label: Industry
+    description: The fleet's industry.
+    facts: [transactions, invoices]
+    expression: c.industry
+    synonyms: [industry, industries]
+    value_synonyms:
+      transportation: Transportation
+      construction: Construction
+      energy: Energy
+      technology: Technology
+      tech industry: Technology
+      government: Government
+      retail: Retail
+
+  product:
+    label: Product
+    description: What was purchased on the authorization.
+    facts: [transactions]
+    expression: t.product
+    synonyms: [product, products, fuel product]
+    value_synonyms:
+      diesel exhaust fluid: DEF
+      diesel: Diesel
+      unleaded: Unleaded
+      premium: Premium
+      def: DEF
+      electricity: Electricity
+
+  fuel_type:
+    label: Fuel type
+    description: The card's vehicle fuel type, which can differ from the product bought.
+    facts: [transactions]
+    expression: cd.fuel_type
+    synonyms: [fuel type, vehicle fuel]
+    value_synonyms:
+      electric vehicles: EV
+      ev vehicles: EV
+      ev cards: EV
+      diesel vehicles: Diesel
+      gasoline: Gasoline
+      hybrids: Hybrid
+      hybrid: Hybrid
+
+  vehicle_class:
+    label: Vehicle class
+    description: Light, medium, or heavy duty.
+    facts: [transactions]
+    expression: cd.vehicle_class
+    synonyms: [vehicle class, weight class]
+    value_synonyms:
+      heavy duty: Heavy
+      medium duty: Medium
+      light duty: Light
+
+  merchant_category:
+    label: Merchant category
+    description: The kind of site.
+    facts: [transactions]
+    expression: m.category
+    synonyms: [merchant category, category]
+    value_synonyms:
+      truck stop: Truck stop
+      retail fuel: Retail fuel
+      cardlock: Cardlock
+      depot: Depot
+
+  secure_fuel:
+    label: SecureFuel
+    description: Whether the card has SecureFuel controls.
+    facts: [transactions]
+    value_type: bool
+    expression: cd.secure_fuel
+    select: "CASE WHEN cd.secure_fuel THEN 'SecureFuel' ELSE 'Standard' END"
+    synonyms: [securefuel status, secure fuel status, securefuel, secure fuel]
+    bind:
+      SecureFuel: true
+      Standard: false
+    value_synonyms:
+      without secure fuel: Standard
+      without securefuel: Standard
+      non-securefuel: Standard
+      non securefuel: Standard
+      with secure fuel: SecureFuel
+      with securefuel: SecureFuel
+      securefuel cards: SecureFuel
+      secure fuel cards: SecureFuel
+      securefuel: SecureFuel
+      secure fuel: SecureFuel
+
+  network:
+    label: Network
+    description: Whether the merchant is in network.
+    facts: [transactions]
+    value_type: bool
+    expression: m.in_network
+    select: "CASE WHEN m.in_network THEN 'In network' ELSE 'Out of network' END"
+    synonyms: [network status, network]
+    bind:
+      In network: true
+      Out of network: false
+    value_synonyms:
+      out-of-network: Out of network
+      out of network: Out of network
+      off-network: Out of network
+      off network: Out of network
+      in-network: In network
+      in network: In network
+
+  month:
+    label: Month
+    description: Calendar month of the sale, or the invoice month.
+    facts: [transactions, invoices]
+    expression:
+      transactions: "strftime(t.txn_date, '%Y-%m')"
+      invoices: "strftime(i.invoice_month, '%Y-%m')"
+    synonyms: [month, months]
+    mentions: ["monthly", "over time"]
+
+  customer:
+    label: Customer
+    description: The fleet.
+    facts: [transactions, invoices]
+    expression: c.customer_name
+    synonyms: [customer, customers, fleets]
+
+  card_program:
+    label: Card program
+    description: Universal, Regional, or EV Fleet.
+    facts: [transactions, invoices]
+    expression: c.card_program
+    synonyms: [card program]
+    value_synonyms:
+      ev fleet: EV Fleet
+      universal: Universal
+      regional program: Regional
+
+  fraud_type:
+    label: Fraud type
+    description: Skimming or card-not-present. Naming a fraud type without a metric implies fraud losses.
+    facts: [transactions]
+    expression: t.fraud_type
+    synonyms: [fraud type]
+    implied_metric: fraud_losses
+    value_synonyms:
+      card not present: Card not present
+      card-not-present: Card not present
+      cnp: Card not present
+      skimming: Skimming
+
+  auth_status:
+    label: Auth status
+    description: Approved or declined.
+    facts: [transactions]
+    expression: t.auth_status
+    synonyms: [auth status, authorization status]
+    value_synonyms:
+      approved: Approved
+      declined: Declined
